@@ -2673,59 +2673,45 @@ class SANS:
 		"""Try to crack the hash.
 		@param hashvalue Hash to crack.
 		@param alg Algorithm to crack."""
-		
-		# Check if the cracker can crack this kind of algorithm
-		if not self.isSupported (alg):
-			return None
-		
-		# Build the URL
-		url = "http://isc.sans.edu/tools/reversehash.html"
-		
-		# Build the Headers with a random User-Agent
-		headers = { "User-Agent" : USER_AGENTS[randint(0, len(USER_AGENTS))-1] }
-		
-		# Build the parameters
-		response = do_HTTP_request ( url, httpheaders=headers )
-		html = None
-		if response:
-			html = response.read()
-		else:
-			return None
-		match = search (r'<input type="hidden" name="token" value="[^"]*" />', html)
-		token = ""
-		if match:
-			token = match.group().split('"')[5]
-		else:
-			return None
-		
-		params = { "token" : token,
-			   "text" : hashvalue,
-			   "word" : "",
-			   "submit" : "Submit" }
-		
-		# Build the Headers with the Referer header
-		headers["Referer"] = "http://isc.sans.edu/tools/reversehash.html"
-		
-		# Make the request
-		response = do_HTTP_request ( url, params, headers )
-		
-		# Analyze the response
-		html = None
-		if response:
-			html = response.read()
-		else:
-			return None
-		
-		match = search (r'... hash [^\s]* = [^\s]*\s*</p><br />', html)
-		
-		if match:
-			print "hola mundo"
-			return match.group().split('=')[1][:-10].strip()
-		else:
-			return None
+                cookies = LWPCookieJar()
+                handlers = [
+                    urllib2.HTTPHandler(),
+                    urllib2.HTTPSHandler(),
+                    urllib2.HTTPCookieProcessor(cookies)
+                    ]
+                opener = urllib2.build_opener(*handlers)
+                url = 'https://isc.sans.edu/tools/reversehash.html'
 
+                httpheaders= { "User-Agent" : 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:52.0) Gecko/20100101 Firefox/52.0' }
 
+                request = urllib2.Request(url,headers=httpheaders)
 
+                response = opener.open(url)
+                html = response.read()
+                findtok= search(r'name="token" value="[a-f0-9]+" />',html)
+                token= findtok.group().split('"')[3].split(' ')[0].strip()
+                params= {
+                        "token" : token,
+                        "text" : '45088e4a0a102f0e047e3ea7109f4ccfca98fd74'
+                        }
+                data = urlencode(params)
+                httpheaders["Referer"] = "http://isc.sans.edu/tools/reversehash.html"
+                request = urllib2.Request(url,data,headers=httpheaders)
+
+                response = opener.open(request)
+                try:
+                        cookies.save(cookiefile)
+                except:
+                        print "Cookies not saved!?"
+
+                html = response.read()
+                match = search(r'.{3,5} hash [a-f0-9]{32,40} = .+ </p>',html)
+                if match:
+                        print match.group()[:-5]
+                        return match.group()[:-5].split(' ')[5].strip()
+		else:
+			return None
+                                                                       
 class BOKEHMAN:
 	
 	name = 		"bokehman"
