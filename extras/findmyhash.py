@@ -124,52 +124,6 @@ USER_AGENTS = [
 ########################################################################################################
 
 
-class SCHWETT:
-	
-	name = 		"schwett"
-	url = 		"http://schwett.com"
-	supported_algorithm = [MD5]
-	
-	def isSupported (self, alg):
-		"""Return True if HASHCRACK can crack this type of algorithm and
-		False if it cannot."""
-		
-		if alg in self.supported_algorithm:
-			return True
-		else:
-			return False
-
-
-	def crack (self, hashvalue, alg):
-		"""Try to crack the hash.
-		@param hashvalue Hash to crack.
-		@param alg Algorithm to crack."""
-		
-		# Check if the cracker can crack this kind of algorithm
-		if not self.isSupported (alg):
-			return None
-		
-		# Build the URL
-		url = "http://schwett.com/md5/index.php?md5value=%s&md5c=Hash+Match" % (hashvalue)
-		
-		# Make the request
-		response = do_HTTP_request ( url )
-		
-		# Analyze the response
-		html = None
-		if response:
-			html = response.read()
-		else:
-			return None
-		
-		match = search (r"<h3><font color='red'>No Match Found</font></h3><br />", html)
-		if match:
-			return None
-		else:
-			return "The hash is broken, please contact with La X marca el lugar and send it the hash value to add the correct regexp."
-
-
-
 class NETMD5CRACK:
 
 	name = 		"netmd5crack"
