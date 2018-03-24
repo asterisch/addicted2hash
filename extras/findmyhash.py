@@ -34,6 +34,10 @@ try:
 	from random import seed, randint
 	from base64 import decodestring, encodestring
 	from cookielib import LWPCookieJar
+	import signal
+	import requests
+	from bs4 import BeautifulSoup as bs
+	import re
 except:
 	print """
 Execution error:
@@ -124,151 +128,6 @@ USER_AGENTS = [
 ########################################################################################################
 
 
-class NETMD5CRACK:
-
-	name = 		"netmd5crack"
-	url = 		"http://www.netmd5crack.com"
-	supported_algorithm = [MD5]
-	
-	def isSupported (self, alg):
-		"""Return True if HASHCRACK can crack this type of algorithm and
-		False if it cannot."""
-		
-		if alg in self.supported_algorithm:
-			return True
-		else:
-			return False
-
-
-	def crack (self, hashvalue, alg):
-		"""Try to crack the hash.
-		@param hashvalue Hash to crack.
-		@param alg Algorithm to crack."""
-		
-		# Check if the cracker can crack this kind of algorithm
-		if not self.isSupported (alg):
-			return None
-		
-		# Build the URL
-		url = "http://www.netmd5crack.com/cgi-bin/Crack.py?InputHash=%s" % (hashvalue)
-		
-		# Make the request
-		response = do_HTTP_request ( url )
-		
-		# Analyze the response
-		html = None
-		if response:
-			html = response.read()
-		else:
-			return None
-		
-		regexp = r'<tr><td class="border">%s</td><td class="border">[^<]*</td></tr></table>' % (hashvalue)
-		match = search (regexp, html)
-		
-		if match:
-			match2 = search ( "Sorry, we don't have that hash in our database", match.group() )
-			if match2:
-				return None
-			else:
-				return match.group().split('border')[2].split('<')[0][2:]
-
-
-
-class MD5_CRACKER:
-	
-	name = 		"md5-cracker"
-	url = 		"http://www.md5-cracker.tk"
-	supported_algorithm = [MD5]
-	
-	def isSupported (self, alg):
-		"""Return True if HASHCRACK can crack this type of algorithm and
-		False if it cannot."""
-		
-		if alg in self.supported_algorithm:
-			return True
-		else:
-			return False
-
-
-	def crack (self, hashvalue, alg):
-		"""Try to crack the hash.
-		@param hashvalue Hash to crack.
-		@param alg Algorithm to crack."""
-		
-		# Check if the cracker can crack this kind of algorithm
-		if not self.isSupported (alg):
-			return None
-		
-		# Build the URL
-		url = "http://www.md5-cracker.tk/xml.php?md5=%s" % (hashvalue)
-		
-		# Make the request
-		response = do_HTTP_request ( url )
-		
-		# Analyze the response
-		if response:
-			try:
-				doc = parseDoc ( response.read() )
-			except:
-				print "INFO: You need libxml2 to use this plugin."
-				return None
-		else:
-			return None
-		
-		result = doc.xpathEval("//data")
-		if len(result):
-			return result[0].content
-		else:
-			return None
-
-
-class BENRAMSEY:
-	
-	name = 		"benramsey"
-	url = 		"http://tools.benramsey.com"
-	supported_algorithm = [MD5]
-	
-	def isSupported (self, alg):
-		"""Return True if HASHCRACK can crack this type of algorithm and
-		False if it cannot."""
-		
-		if alg in self.supported_algorithm:
-			return True
-		else:
-			return False
-
-
-	def crack (self, hashvalue, alg):
-		"""Try to crack the hash.
-		@param hashvalue Hash to crack.
-		@param alg Algorithm to crack."""
-		
-		# Check if the cracker can crack this kind of algorithm
-		if not self.isSupported (alg):
-			return None
-		
-		# Build the URL
-		url = "http://tools.benramsey.com/md5/md5.php?hash=%s" % (hashvalue)
-		
-		# Make the request
-		response = do_HTTP_request ( url )
-		
-		# Analyze the response
-		html = None
-		if response:
-			html = response.read()
-		else:
-			return None
-			
-		match = search (r'<string><!\[CDATA\[[^\]]*\]\]></string>', html)
-		
-		if match:
-			return match.group().split(']')[0][17:]
-		else:
-			return None
-
-
-
 class GROMWEB: 
 	
 	name = 		"gromweb"
@@ -295,15 +154,15 @@ class GROMWEB:
 			return None
 		
 		# Build the URL
-		url = "http://md5.gromweb.com/query/%s" % (hashvalue)
-		
+		url = "http://md5.gromweb.com/?md5=%s" % (hashvalue)
+
 		# Make the request
-		response = do_HTTP_request ( url )
-		
+		data = do_HTTP_request ( url ,lib="requests")
+		response=data.text
 		# Analyze the response
-		if response:
-			return response.read()
-			
+		html = re.search(".*succesfull.*\n<em.*", response).group(0)
+		soup = bs(html,"lxml")
+		response=soup.find("em").get_text()
 		return response
 		
 		
@@ -2864,10 +2723,9 @@ class WHREPORITORY:
 
 
 
-CRAKERS = [ 	SCHWETT,
-		NETMD5CRACK,
-		MD5_CRACKER,
-		BENRAMSEY,
+CRAKERS = [ 	#NETMD5CRACK, # removed not working
+		#MD5_CRACKER,
+		#BENRAMSEY,
 		GROMWEB,
 		HASHCRACKING,
 		VICTOROV,
@@ -2917,10 +2775,22 @@ CRAKERS = [ 	SCHWETT,
 		WHREPORITORY ]
 
 
+sigterm=False
+signals=dict((k, v) for v, k in reversed(sorted(signal.__dict__.items()))
+	if v.startswith('SIG') and not v.startswith('SIG_'))
 
 ########################################################################################################
 ### GENERAL METHODS
 ########################################################################################################
+# CTRL-C gracefull shutdown handler
+def signal_handler(signum, frame):
+	global sigterm
+	global signals
+	print('Received '+signals[signum])
+	# Term signals
+	if signum in [1,2,9,10,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,30,31]:
+		sigterm=True
+	sys.exit(0)
 
 def configureCookieProcessor (cookiefile='/tmp/searchmyhash.cookie'):
 	'''Set a Cookie Handler to accept cookies from the different Web sites.
@@ -2937,29 +2807,35 @@ def configureCookieProcessor (cookiefile='/tmp/searchmyhash.cookie'):
 
 
 
-def do_HTTP_request (url, params={}, httpheaders={}):
+def do_HTTP_request (url, method=None,lib="urllib2",params={}, httpheaders={}):
 	'''
 	Send a GET or POST HTTP Request.
 	@return: HTTP Response
 	'''
+	global USER_AGENTS
 
-	data = {}
-	request = None
-	
 	# If there is parameters, they are been encoded
-	if params:
-		data = urlencode(params)
+	if lib == "urllib2":
+		data = {}
+		request = None
+		if params:
+			data = urlencode(params)
 
-		request = urllib2.Request ( url, data, headers=httpheaders )
-	else:
-		request = urllib2.Request ( url, headers=httpheaders )
-		
-	# Send the request
-	try:
-		response = urllib2.urlopen (request)
-	except:
-		return ""
-	
+			request = urllib2.Request ( url, data, headers=httpheaders )
+		else:
+			request = urllib2.Request ( url, headers=httpheaders )
+
+		# Send the request
+		try:
+			response = urllib2.urlopen (request)
+		except:
+			return ""
+	# Use the Requests library
+	elif lib=="requests":
+		# Choose random user agent
+		httpheaders["user-agent"]=USER_AGENTS[randint(0,len(USER_AGENTS)-1)]
+		response=requests.get(url,headers=httpheaders)
+
 	return response
 
 
@@ -3047,7 +2923,7 @@ def crackHash (algorithm, hashvalue=None, hashfile=None):
 	@return If the hash has been cracked or not."""
 	
 	global CRAKERS
-	
+	global sigterm
 	# Cracked hashes will be stored here
 	crackedhashes = []
 	
@@ -3072,6 +2948,9 @@ def crackHash (algorithm, hashvalue=None, hashfile=None):
 	
 	# Try to crack all the hashes...
 	for activehash in hashestocrack:
+		# SIG
+		if sigterm:
+			break
 		hashresults = []
 		
 		# Standarize the hash
@@ -3084,12 +2963,14 @@ def crackHash (algorithm, hashvalue=None, hashfile=None):
 
 		# Each loop starts for a different start point to try to avoid IP filtered
 		begin = randint(0, len(CRAKERS)-1)
-		
-		for i in range(len(CRAKERS)):
-			
+		test_func_idx=CRAKERS.index(GROMWEB)
+		i=0
+		#for i in range(len(CRAKERS)):
+		while i==test_func_idx:
 			# Select the cracker
-			cr = CRAKERS[ (i+begin)%len(CRAKERS) ]()
-			
+			#cr = CRAKERS[ (i+begin)%len(CRAKERS) ]()
+			cr=CRAKERS[test_func_idx]()
+			i+=1
 			# Check if the cracker support the algorithm
 			if not cr.isSupported ( algorithm ):
 				continue
@@ -3112,6 +2993,7 @@ def crackHash (algorithm, hashvalue=None, hashfile=None):
 				return False
 			
 			# If there is any result...
+			#  confirm the result by rehashing the plaintext
 			cracked = 0
 			if result:
 				
@@ -3274,7 +3156,7 @@ def searchHash (hashvalue):
 
 def main():
 	"""Main method."""
-
+	signal.signal(signal.SIGINT, signal_handler)
 
 	###################################################
 	# Syntax check
