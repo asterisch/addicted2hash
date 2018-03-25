@@ -218,57 +218,6 @@ class MY_ADDR:
         else:
             return None
 
-class MD5PASS:
-
-    name = 		"md5pass"
-    url = 		"http://md5pass.info"
-    supported_algorithm = [MD5]
-
-    def isSupported (self, alg):
-        """Return True if HASHCRACK can crack this type of algorithm and
-        False if it cannot."""
-
-        if alg in self.supported_algorithm:
-            return True
-        else:
-            return False
-
-
-    def crack (self, hashvalue, alg):
-        """Try to crack the hash.
-        @param hashvalue Hash to crack.
-        @param alg Algorithm to crack."""
-
-        # Check if the cracker can crack this kind of algorithm
-        if not self.isSupported (alg):
-            return None
-
-        # Build the URL
-        url = self.url
-
-        # Build the parameters
-        params = { "hash" : hashvalue,
-               "get_pass" : "Get Pass" }
-
-        # Make the request
-        response = do_HTTP_request ( url, params )
-
-        # Analyze the response
-        html = None
-        if response:
-            html = response.read()
-        else:
-            return None
-
-        match = search (r"Password - <b>[^<]*</b>", html)
-
-        if match:
-            return match.group().split('b>')[1][:-2]
-        else:
-            return None
-
-
-
 class MD5DECRYPTION:
 
     name = 		"md5decryption"
@@ -299,15 +248,15 @@ class MD5DECRYPTION:
 
         # Build the parameters
         params = { "hash" : hashvalue,
-               "submit" : "Decrypt It!" }
+               "submit" : "Decrypt+It!" }
 
         # Make the request
-        response = do_HTTP_request ( url, params )
+        response = do_HTTP_request ( url, httpheaders=params,method="post" )
 
         # Analyze the response
         html = None
         if response:
-            html = response.read()
+            html = response.text
         else:
             return None
 
@@ -320,10 +269,10 @@ class MD5DECRYPTION:
 
 
 
-class MD5CRACK:
+class MD5DECRYPT:
 
-    name = 		"md5crack"
-    url = 		"http://md5crack.com"
+    name = 		"md5decrypt"
+    url = 		"http://md5decrypt.net"
     supported_algorithm = [MD5]
 
     def isSupported (self, alg):
@@ -344,79 +293,20 @@ class MD5CRACK:
         # Check if the cracker can crack this kind of algorithm
         if not self.isSupported (alg):
             return None
-
+        hashtype="md5"
+        email="wowljjx251m@opayq.com" # Change this
+        code="b16ab64cab62f751"       # Change this
         # Build the URL
-        url = "http://md5crack.com/crackmd5.php"
-
-        # Build the parameters
-        params = { "term" : hashvalue,
-               "crackbtn" : "Crack that hash baby!" }
+        url = "http://md5decrypt.net/Api/api.php?hash=%s&hash_type=%s&email=%s&code=%s" \
+              % (hashvalue, hashtype, email, code)
 
         # Make the request
-        response = do_HTTP_request ( url, params )
+        response = do_HTTP_request ( url ,lib="requests")
 
         # Analyze the response
         html = None
         if response:
-            html = response.read()
-        else:
-            return None
-
-        match = search (r'Found: md5\("[^"]+"\)', html)
-
-        if match:
-            return match.group().split('"')[1]
-        else:
-            return None
-
-
-class MD5ONLINE:
-
-    name = 		"md5online"
-    url = 		"http://md5online.net"
-    supported_algorithm = [MD5]
-
-    def isSupported (self, alg):
-        """Return True if HASHCRACK can crack this type of algorithm and
-        False if it cannot."""
-
-        if alg in self.supported_algorithm:
-            return True
-        else:
-            return False
-
-
-    def crack (self, hashvalue, alg):
-        """Try to crack the hash.
-        @param hashvalue Hash to crack.
-        @param alg Algorithm to crack."""
-
-        # Check if the cracker can crack this kind of algorithm
-        if not self.isSupported (alg):
-            return None
-
-        # Build the URL
-        url = self.url
-
-        # Build the parameters
-        params = { "pass" : hashvalue,
-               "option" : "hash2text",
-               "send" : "Submit" }
-
-        # Make the request
-        response = do_HTTP_request ( url, params )
-
-        # Analyze the response
-        html = None
-        if response:
-            html = response.read()
-        else:
-            return None
-
-        match = search (r'<center><p>md5 :<b>\w*</b> <br>pass : <b>[^<]*</b></p></table>', html)
-
-        if match:
-            return match.group().split('b>')[3][:-2]
+            return response.text
         else:
             return None
 
@@ -2490,10 +2380,11 @@ CRAKERS = [ 	#NETMD5CRACK, # removed not working
         #REDNOIZE,
         #MD5_DB,
         MY_ADDR,
-        MD5PASS,
+        #MD5PASS,
         MD5DECRYPTION,
-        MD5CRACK,
-        MD5ONLINE,
+        MD5DECRYPT,
+        #MD5CRACK,
+        #MD5ONLINE,
         MD5_DECRYPTER,
         AUTHSECUMD5,
         HASHCRACK,
@@ -2569,30 +2460,29 @@ def do_HTTP_request (url, method="get",lib="urllib2",params={}, httpheaders={}):
     @return: HTTP Response
     '''
     global USER_AGENTS
-
+    httpheaders["user-agent"] = USER_AGENTS[randint(0, len(USER_AGENTS) - 1)]
     # If there is parameters, they are been encoded
-    if lib == "urllib2":
-        data = {}
-        request = None
-        if params:
-            data = urlencode(params)
+    if method == "post":
+        response = requests.post(url, data=httpheaders)
+    else:
+        if lib == "urllib2":
+            data = {}
+            request = None
+            if params:
+                data = urlencode(params)
 
-            request = urllib2.Request ( url, data, headers=httpheaders )
-        else:
-            request = urllib2.Request ( url, headers=httpheaders )
+                request = urllib2.Request ( url, data, headers=httpheaders )
+            else:
+                request = urllib2.Request ( url, headers=httpheaders )
 
-        # Send the request
-        try:
-            response = urllib2.urlopen (request)
-        except:
-            return ""
-    # Use the Requests library
-    elif lib=="requests":
-        # Choose random user agent
-        httpheaders["user-agent"]=USER_AGENTS[randint(0,len(USER_AGENTS)-1)]
-        if method=="post":
-            response=requests.post(url,data=httpheaders)
-        elif method=="get":
+            # Send the request
+            try:
+                response = urllib2.urlopen (request)
+            except:
+                return ""
+        # Use the Requests library
+        elif lib=="requests":
+            # Choose random user agent
             response=requests.get(url,headers=httpheaders)
 
     return response
@@ -2722,8 +2612,8 @@ def crackHash (algorithm, hashvalue=None, hashfile=None):
 
         # Each loop starts for a different start point to try to avoid IP filtered
         begin = randint(0, len(CRAKERS)-1)
-        test_func_idx=CRAKERS.index(MY_ADDR)
-        i=1
+        test_func_idx=CRAKERS.index(MD5DECRYPT)
+        i=3
         #for i in range(len(CRAKERS)):
         while i==test_func_idx:
             # Select the cracker
