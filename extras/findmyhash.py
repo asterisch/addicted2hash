@@ -38,6 +38,7 @@ try:
     import requests
     from bs4 import BeautifulSoup as bs
     import re
+    from termcolor import colored
 except:
     print """
 Execution error:
@@ -2535,7 +2536,8 @@ Valid OPTIONS are:
                    
   -g               If your hash cannot be cracked, search it in Google and show all the results.
                    NOTE: This option ONLY works with -h (one hash input) option.
-
+                   
+  -v               If you want verbose output.If not given you have to wait for output only until cracking of ALL hashes has been completed  
 
 Examples:
 ---------
@@ -2563,7 +2565,7 @@ Contact:
 
 
 
-def crackHash (algorithm, hashvalue=None, hashfile=None):
+def crackHash (algorithm, hashvalue=None, hashfile=None,verbose=False):
     """Crack a hash or all the hashes of a file.
 
     @param alg Algorithm of the hash (MD5, SHA1...).
@@ -2608,7 +2610,12 @@ def crackHash (algorithm, hashvalue=None, hashfile=None):
             activehash = activehash.lower()
 
         # Initial message
-        print "\nCracking hash: %s\n" % (activehash)
+        if verbose:
+            print colored("Cracking hash: ",'yellow')+\
+                  colored("%s\n" % (activehash),'yellow',None,['bold'])
+        else:
+            print colored("Cracking hash: ",'yellow')+ \
+                  colored("%s" % (activehash), 'white', None, ['bold']),
 
         # Each loop starts for a different start point to try to avoid IP filtered
         begin = randint(0, len(CRAKERS)-1)
@@ -2625,15 +2632,16 @@ def crackHash (algorithm, hashvalue=None, hashfile=None):
                 continue
 
             # Analyze the hash
-            print "Analyzing with %s (%s)..." % (cr.name, cr.url)
-
+            if verbose:
+                print colored("Analyzing with %s "%cr.name,'yellow')+colored("(%s)"% cr.url,'blue')
             # Crack the hash
             result = None
             try:
                 result = cr.crack ( activehash, algorithm )
             # If it was some trouble, exit
             except:
-                print "\nSomething was wrong. Please, contact with us to report the bug:\n\nbloglaxmarcaellugar@gmail.com\n"
+                if verbose:
+                    print "\nSomething was wrong. Please, contact with us to report the bug:\n\nbloglaxmarcaellugar@gmail.com\n"
                 if hashfile:
                     try:
                         hashestocrack.close()
@@ -2687,14 +2695,25 @@ def crackHash (algorithm, hashvalue=None, hashfile=None):
                     cracked = 1
 
             # Had the hash cracked?
-            if cracked:
-                print "\n***** HASH CRACKED!! *****\nThe original string is: %s\n" % (result)
-                # If result was verified, break
-                if cracked == 2:
-                    break
+            if not verbose:
+                print colored(' --> ','yellow'),
+            if verbose:
+                if cracked:
+                    print colored("***** HASH CRACKED!! *****\n",'yellow')
+                    print colored("The original string is: ",'yellow')+\
+                                  colored("%s\n" % (result),'white',None,['bold'])
+                    # If result was verified, break
+                    #if cracked == 2:
+                    #    break
+                else:
+                    print "... hash not found in %s\n" % (cr.name)
             else:
-                print "... hash not found in %s\n" % (cr.name)
-
+                if cracked:
+                    print colored("[ %s ]"% result,'white',None,['bold'])
+                else:
+                    print colored("[ NOT FOUND ]",'red',None,['bold'])
+            if cracked == 2:
+                break
 
         # Store the result/s for later...
         if hashresults:
@@ -2724,9 +2743,10 @@ def crackHash (algorithm, hashvalue=None, hashfile=None):
             pass
 
     # Show a resume of all the cracked hashes
-    print "\nThe following hashes were cracked:\n----------------------------------\n"
-    print crackedhashes and "\n".join ("%s -> %s" % (hashvalue, result.strip()) for hashvalue, result in crackedhashes) or "NO HASH WAS CRACKED."
-    print
+    if verbose:
+        print colored("The following hashes were cracked:\n----------------------------------\n",'yellow')
+        str=crackedhashes and "\n".join ("%s -> %s" % (hashvalue, result.strip()) for hashvalue, result in crackedhashes) or "NO HASH WAS CRACKED."
+        print colored(str,'white',None,['bold'])
 
     return cracked
 
@@ -2815,7 +2835,7 @@ def main():
 
     else:
         try:
-            opts, args = getopt.getopt (sys.argv[2:], "gh:f:")
+            opts, args = getopt.getopt (sys.argv[2:], "gvh:f:")
         except:
             printSyntax()
             sys.exit(1)
@@ -2824,6 +2844,7 @@ def main():
     ###################################################
     # Load input parameters
     algorithm = sys.argv[1].lower()
+    verbose=False
     hashvalue = None
     hashfile  = None
     googlesearch = False
@@ -2833,6 +2854,8 @@ def main():
             hashvalue = arg
         elif opt == '-f':
             hashfile = arg
+        elif opt== '-v':
+            verbose=True
         else:
             googlesearch = True
 
@@ -2849,7 +2872,7 @@ def main():
 
     ###################################################
     # Crack the hash/es
-    cracked = crackHash (algorithm, hashvalue, hashfile)
+    cracked = crackHash (algorithm, hashvalue, hashfile,verbose)
 
 
     ###################################################
