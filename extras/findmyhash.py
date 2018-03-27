@@ -45,8 +45,7 @@ Execution error:
 
   You required some basic Python libraries. 
   
-  This application use: sys, hashlib, urllib, urllib2, os, re, random, getopt, base64 and cookielib.
-
+  This application use: sys, hashlib, urllib, urllib2, os, re, random, getopt, base64, cookielib, signal, requests, bs4, termcolor.
   Please, check if you have all of them installed in your system.
 
 """
@@ -85,7 +84,7 @@ Execution error:
 ### CONSTANTS
 ########################################################################################################
 
-MD4	= "md4"
+MD4 	= "md4"
 MD5 	= "md5"
 SHA1 	= "sha1"
 SHA224	= "sha224"
@@ -93,17 +92,18 @@ SHA256 	= "sha256"
 SHA384	= "sha384"
 SHA512 	= "sha512"
 RIPEMD	= "rmd160"
-LM 	= "lm"
+LM 	    = "lm"
 NTLM	= "ntlm"
 MYSQL	= "mysql"
 CISCO7	= "cisco7"
 JUNIPER = "juniper"
 GOST	= "gost"
 WHIRLPOOL = "whirlpool"
-LDAP_MD5 = "ldap_md5"
+LDAP_MD5  = "ldap_md5"
 LDAP_SHA1 = "ldap_sha1"
 
-
+HASH_LIST=[MD4,MD5,SHA1,SHA224,SHA256,SHA384,SHA512,RIPEMD,LM,NTLM,MYSQL,CISCO7,JUNIPER,GOST,WHIRLPOOL,LDAP_MD5,LDAP_SHA1]
+COLORS=["red","blue","green","cyan","magenta","yellow","white"]
 USER_AGENTS = [
     "Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.1; SV1; Crazy Browser 1.0.5)",
     "curl/7.7.2 (powerpc-apple-darwin6.0) libcurl 7.7.2 (OpenSSL 0.9.6b)",
@@ -168,6 +168,7 @@ class GROMWEB:
         response=soup.find("em").get_text()
         return response
 
+
 class MY_ADDR:
 
     name = 		"my-addr"
@@ -220,6 +221,7 @@ class MY_ADDR:
         else:
             return None
 
+
 class MD5DECRYPTION:
 
     name = 		"md5decryption"
@@ -269,6 +271,7 @@ class MD5DECRYPTION:
         else:
             return None
 
+
 class MD5DECRYPT:
 
     name = 		"md5decrypt"
@@ -309,6 +312,7 @@ class MD5DECRYPT:
             return response.text
         else:
             return None
+
 
 class HASHCRACK:
 
@@ -372,6 +376,7 @@ class HASHCRACK:
             return match.group().split('hervorheb2>')[1][:-18]
         else:
             return None
+
 
 class OPHCRACK:
 
@@ -714,78 +719,6 @@ class SANS:
         else:
             return None
 
-class BOKEHMAN:
-
-    name = 		"bokehman"
-    url = 		"http://bokehman.com"
-    supported_algorithm = [MD4, MD5]
-
-    def isSupported (self, alg):
-        """Return True if HASHCRACK can crack this type of algorithm and
-        False if it cannot."""
-
-        if alg in self.supported_algorithm:
-            return True
-        else:
-            return False
-
-
-
-    def crack (self, hashvalue, alg):
-        """Try to crack the hash.
-        @param hashvalue Hash to crack.
-        @param alg Algorithm to crack."""
-
-        # Check if the cracker can crack this kind of algorithm
-        if not self.isSupported (alg):
-            return None
-
-        # Build the URL
-        url = "http://bokehman.com/cracker/"
-
-        # Build the parameters from the main page
-        response = do_HTTP_request ( url )
-        html = None
-        if response:
-            html = response.read()
-        else:
-            return None
-        match = search (r'<input type="hidden" name="PHPSESSID" id="PHPSESSID" value="[^"]*" />', html)
-        phpsessnid = ""
-        if match:
-            phpsessnid = match.group().split('"')[7]
-        else:
-            return None
-        match = search (r'<input type="hidden" name="key" id="key" value="[^"]*" />', html)
-        key = ""
-        if match:
-            key = match.group().split('"')[7]
-        else:
-            return None
-
-        params = { "md5" : hashvalue,
-               "PHPSESSID" : phpsessnid,
-               "key" : key,
-               "crack" : "Try to crack it" }
-
-        # Make the request
-        response = do_HTTP_request ( url, params )
-
-        # Analyze the response
-        html = None
-        if response:
-            html = response.read()
-        else:
-            return None
-
-        match = search (r'<tr><td>[^<]*</td><td>[^<]*</td><td>[^s]*seconds</td></tr>', html)
-
-        if match:
-            return match.group().split('td>')[1][:-2]
-        else:
-            return None
-
-
 
 class GOOG_LI:
 
@@ -843,128 +776,25 @@ class GOOG_LI:
             return None
 
 
+########################################################################################################
+### GLOABAL VARIABLES
+########################################################################################################
 
-class WHREPORITORY:
-
-    name = 		"Windows Hashes Repository"
-    url = 		"http://nediam.com.mx"
-    supported_algorithm = [LM, NTLM]
-
-    def isSupported (self, alg):
-        """Return True if HASHCRACK can crack this type of algorithm and
-        False if it cannot."""
-
-        if alg in self.supported_algorithm:
-            return True
-        else:
-            return False
-
-
-    def crack (self, hashvalue, alg):
-        """Try to crack the hash.
-        @param hashvalue Hash to crack.
-        @param alg Algorithm to crack."""
-
-        # Check if the cracker can crack this kind of algorithm
-        if not self.isSupported (alg):
-            return None
-
-        hash2 = None
-        if ':' in hashvalue:
-            if alg == LM:
-                hash2 = hashvalue.split(':')[0]
-            else:
-                hash2 = hashvalue.split(':')[1]
-        else:
-            hash2 = hashvalue
-
-        # Build the URL, parameters and headers
-        url = ""
-        params = None
-        headers = None
-        if alg == LM:
-            url = "http://nediam.com.mx/winhashes/search_lm_hash.php"
-            params = { "lm" : hash2,
-                "btn_go" : "Search" }
-            headers = { "Referer" : "http://nediam.com.mx/winhashes/search_lm_hash.php" }
-        else:
-            url = "http://nediam.com.mx/winhashes/search_nt_hash.php"
-            params = { "nt" : hash2,
-                "btn_go" : "Search" }
-            headers = { "Referer" : "http://nediam.com.mx/winhashes/search_nt_hash.php" }
-
-        # Make the request
-        response = do_HTTP_request ( url, params, headers )
-
-        # Analyze the response
-        html = None
-        if response:
-            html = response.read()
-        else:
-            return None
-
-        match = search (r'<tr><td align="right">PASSWORD</td><td>[^<]*</td></tr>', html)
-
-        if match:
-            return match.group().split(':')[1]
-        else:
-            return None
-
-
-
-CRAKERS = [ 	#NETMD5CRACK, # removed not working
-        #MD5_CRACKER,
-        #BENRAMSEY,
-        GROMWEB,        #0
-        #HASHCRACKING,
-        #VICTOROV,
-        #THEKAINE,
-        #TMTO,
-        #REDNOIZE,
-        #MD5_DB,
-        MY_ADDR,        #1
-        #MD5PASS,
-        MD5DECRYPTION,  #2
-        MD5DECRYPT,     #3
-        #MD5CRACK,
-        #MD5ONLINE,
-        #MD5_DECRYPTER,
-        #AUTHSECUMD5,
-        HASHCRACK,      #4
-        #OPHCRACK,
-        #C0LLISION,
-        CMD5,           #5
-        #AUTHSECUCISCO7,
-        #CACIN,
-        IBEAST,         #6
+CRAKERS = [
+        GROMWEB,         #0
+        MY_ADDR,         #1
+        MD5DECRYPTION,   #2
+        MD5DECRYPT,      #3
+        HASHCRACK,       #4
+        CMD5,            #5
+        IBEAST,          #6
         PASSWORD_DECRYPT,#7
-        #BIGTRAPEZE,
-        #HASHCHECKER,
-        #MD5HASHCRACKER,
-        #PASSCRACKING,
-        #ASKCHECK,
-        #FOX21,
-        #NICENAMECREW,
-        #JOOMLAAA,
-        #MD5_LOOKUP,
-        # SHA1_LOOKUP,
-        # SHA256_LOOKUP,
-        # RIPEMD160_LOOKUP,
-        # MD5_COM_CN,
-        # DIGITALSUN,
-        # DRASEN,
-        # MYINFOSEC,
-        # MD5_NET,
-        # NOISETTE,
-        # MD5HOOD,
-        # STRINGFUNCTION,
-        # XANADREL,
-        SANS,          #8
-        BOKEHMAN,
+        SANS,            #8
         GOOG_LI,
-        WHREPORITORY ]
+        ]
 
 
+verbose=False
 sigterm=False
 signals=dict((k, v) for v, k in reversed(sorted(signal.__dict__.items()))
     if v.startswith('SIG') and not v.startswith('SIG_'))
@@ -972,8 +802,9 @@ signals=dict((k, v) for v, k in reversed(sorted(signal.__dict__.items()))
 ########################################################################################################
 ### GENERAL METHODS
 ########################################################################################################
-# CTRL-C gracefull shutdown handler
+
 def signal_handler(signum, frame):
+    # CTRL-C gracefull shutdown handler
     global sigterm
     global signals
     print('Received '+signals[signum])
@@ -981,6 +812,7 @@ def signal_handler(signum, frame):
     if signum in [1,2,9,10,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,30,31]:
         sigterm=True
     sys.exit(0)
+
 
 def configureCookieProcessor (cookiefile='/tmp/searchmyhash.cookie'):
     '''Set a Cookie Handler to accept cookies from the different Web sites.
@@ -994,7 +826,6 @@ def configureCookieProcessor (cookiefile='/tmp/searchmyhash.cookie'):
 
         opener = urllib2.build_opener ( urllib2.HTTPCookieProcessor(cookieHandler) )
         urllib2.install_opener (opener)
-
 
 
 def do_HTTP_request (url, method="get",lib="urllib2",params={}, httpheaders={}):
@@ -1079,7 +910,9 @@ Valid OPTIONS are:
   -g               If your hash cannot be cracked, search it in Google and show all the results.
                    NOTE: This option ONLY works with -h (one hash input) option.
                    
-  -v               If you want verbose output.If not given you have to wait for output only until cracking of ALL hashes has been completed  
+  -v               If you want verbose output.If not given you have to wait for output only until cracking of ALL hashes has been completed
+  
+  -l               List resources used by this script ordered by hash algorithm  
 
 Examples:
 ---------
@@ -1096,6 +929,9 @@ Examples:
   -> Try to crack multiple hashes using a file (one hash per line).
      python %s MYSQL -f mysqlhashesfile.txt
      
+  -> List reversing resources based on hash algorithm
+     python %s SHA1 -l
+     
      
 Contact:
 --------
@@ -1103,8 +939,7 @@ Contact:
 [Web]           http://laxmarcaellugar.blogspot.com/
 [Mail/Google+]  bloglaxmarcaellugar@gmail.com
 [twitter]       @laXmarcaellugar
-""" % ( (sys.argv[0],) * 8 )
-
+""" % ( (sys.argv[0],) * 9 )
 
 
 def crackHash (algorithm, hashvalue=None, hashfile=None,verbose=False):
@@ -1293,8 +1128,6 @@ def crackHash (algorithm, hashvalue=None, hashfile=None,verbose=False):
     return cracked
 
 
-
-
 def searchHash (hashvalue):
     '''Google the hash value looking for any result which could give some clue...
 
@@ -1361,18 +1194,52 @@ def searchHash (hashvalue):
         print "\n\nGoogle doesn't have any result. Sorry!\n"
 
 
+def list_per_hash(algorithm):
+    if not algorithm:
+        return 1
+    algorithm=algorithm.lower()
+    if algorithm == "all":
+        for h in HASH_LIST:
+            resources=[]
+            for cr in CRAKERS:
+                if h in cr.supported_algorithm:
+                    resources.append(cr.name)
+            print colored("\n%s\tTotal %d" %(h.upper(),len(resources)),'white',None,['bold'])
+            for res in resources:
+                print colored(res+"  ",COLORS[randint(0,len(COLORS)-2)],None,['bold']),
+            print
+        return 0
+    elif algorithm in HASH_LIST:
+        resources = []
+        for cr in CRAKERS:
+            if algorithm in cr.supported_algorithm:
+                resources.append(cr.name)
+        print colored("\n%s\tTotal %d" % (algorithm.upper(), len(resources)), 'white', None, ['bold'])
+        for res in resources:
+            print colored(res + "  ", COLORS[randint(0, len(COLORS) - 2)], None, ['bold']),
+        print
+        return 0
+    return 1
+
 ########################################################################################################
 ### MAIN CODE
 ########################################################################################################
-verbose=False
 
 def main():
     """Main method."""
+    ##################################################
+    # Signal handling
     signal.signal(signal.SIGINT, signal_handler)
 
     ###################################################
     # Syntax check
     if len (sys.argv) < 4:
+        if len(sys.argv)==3 and sys.argv[2] == '-l':
+            if list_per_hash(sys.argv[1]):
+                printSyntax()
+                sys.exit(1)
+            else:
+                sys.exit(0)
         printSyntax()
         sys.exit(1)
 
