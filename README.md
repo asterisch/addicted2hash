@@ -46,6 +46,7 @@ I also added some features:
   - Graceful script termination given a signal (like SIGTERM or CTRL-C)
   - Colorized output
   - Verbose option (-v)
+  - "Cache file" in order to store cracked hashes with their corresponding passwords for future use. 
 ### Description
   Another handy script for dealing with hashes that I found on Google code pages here: http://code.google.com/p/findmyhash/. Uses the internet and many available hash lookup sites to check if you hashes have been previously cracked by others and posted. Helpful to have around.
   
