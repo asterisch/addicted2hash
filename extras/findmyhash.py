@@ -28,6 +28,7 @@ try:
     import hashlib
     import urllib2
     import getopt
+    import os
     from os import path
     from urllib import urlencode
     from re import search, findall
@@ -122,8 +123,9 @@ USER_AGENTS = [
     "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)"
     ]
 
-
-
+CACHE_FILENAME="passes_found.txt"
+write_cache="write"
+read_cache="read"
 ########################################################################################################
 ### CRACKERS DEFINITION
 ########################################################################################################
@@ -545,7 +547,11 @@ class CMD5:
             return None
 
         match = search (r'<span id=\"ctl00_ContentPlaceHolder1_LabelAnswer\">.*</span>', html)
-        result=re.search(r">.*<br",match.group(0))
+        if match:
+            result=re.search(r">.*<br",match.group(0))
+        else:
+            return None
+
         if result:
             if verbose:
                 print(result.group(0).split(">")[1].split('<')[0])
@@ -790,7 +796,8 @@ CRAKERS = [
         IBEAST,          #6
         PASSWORD_DECRYPT,#7
         SANS,            #8
-        GOOG_LI,
+        OPHCRACK         #9
+       # GOOG_LI,
         ]
 
 
@@ -955,8 +962,6 @@ def crackHash (algorithm, hashvalue=None, hashfile=None,verbose=False):
     # Cracked hashes will be stored here
     crackedhashes = []
 
-    # Is the hash cracked?
-    cracked = False
 
     # Only one of the two possible inputs can be setted.
     if (not hashvalue and not hashfile) or (hashvalue and hashfile):
@@ -964,6 +969,10 @@ def crackHash (algorithm, hashvalue=None, hashfile=None,verbose=False):
 
     # hashestocrack depends on the input value
     hashestocrack = None
+
+
+
+
     if hashvalue:
         hashestocrack = [ hashvalue ]
     else:
@@ -975,6 +984,7 @@ def crackHash (algorithm, hashvalue=None, hashfile=None,verbose=False):
 
 
     # Try to crack all the hashes...
+
     for activehash in hashestocrack:
         # SIG
         if sigterm:
@@ -983,8 +993,19 @@ def crackHash (algorithm, hashvalue=None, hashfile=None,verbose=False):
 
         # Standarize the hash
         activehash = activehash.strip()
+
         if algorithm not in [JUNIPER, LDAP_MD5, LDAP_SHA1]:
             activehash = activehash.lower()
+
+        # Is the hash cracked?
+        cracked = False
+
+        # If hash already cracked in previous sessions retrieve it from cache file and dont try online crackers at all
+        cached=False
+        result = manageCached(activehash, read_cache, None)
+        if result != activehash and result is not None:
+            cracked = True
+            cached = True
 
         # Initial message
         if verbose:
@@ -993,42 +1014,45 @@ def crackHash (algorithm, hashvalue=None, hashfile=None,verbose=False):
         else:
             print colored("Cracking hash: ",'yellow')+ \
                   colored("%s" % (activehash), 'white', None, ['bold']),
-
+        if not verbose:
+            print colored(' --> ', 'yellow'),
         # Each loop starts for a different start point to try to avoid IP filtered
         begin = randint(0, len(CRAKERS)-1)
-        test_func_idx=CRAKERS.index(SANS)
-        i=8
-        #for i in range(len(CRAKERS)):
-        while i==test_func_idx:
+        #test_func_idx=CRAKERS.index(SANS)
+        #i=begin
+        for i in range(len(CRAKERS)):
+        #while i==test_func_idx:
             # Select the cracker
-            #cr = CRAKERS[ (i+begin)%len(CRAKERS) ]()
-            cr=CRAKERS[test_func_idx]()
-            i+=1
+            cr = CRAKERS[ (i+begin)%len(CRAKERS) ]()
+            #cr=CRAKERS[test_func_idx]()
+            #i+=1
             # Check if the cracker support the algorithm
             if not cr.isSupported ( algorithm ):
                 continue
 
             # Analyze the hash
-            if verbose:
+            if verbose and not cached:
                 print colored("Analyzing with %s "%cr.name,'yellow')+colored("(%s)"% cr.url,'blue')
             # Crack the hash
-            result = None
-            try:
-                result = cr.crack ( activehash, algorithm )
-            # If it was some trouble, exit
-            except:
-                if verbose:
-                    print "\nSomething was wrong. Please, contact with us to report the bug:\n\nbloglaxmarcaellugar@gmail.com\n"
-                if hashfile:
-                    try:
-                        hashestocrack.close()
-                    except:
-                        pass
-                return False
+            # If hash not already in cached cracked hashes use online resources
+            if not cracked:
+                result = None
+                try:
+                    result = cr.crack ( activehash, algorithm )
+                # If it was some trouble, exit
+                except:
+                    if verbose:
+                        print "\nSomething was wrong. Please, contact with us to report the bug:\n\nbloglaxmarcaellugar@gmail.com\n"
+                    if hashfile:
+                        try:
+                            hashestocrack.close()
+                        except:
+                            pass
+                    return False
 
-            # If there is any result...
-            #  confirm the result by rehashing the plaintext
-            cracked = 0
+                # If there is any result...
+                cracked=False
+
             if result:
 
                 # If it is a hashlib supported algorithm...
@@ -1040,7 +1064,7 @@ def crackHash (algorithm, hashvalue=None, hashfile=None,verbose=False):
                     # If the calculated hash is the same to cracker result, the result is correct (finish!)
                     if h.hexdigest() == activehash:
                         hashresults.append (result)
-                        cracked = 2
+                        cracked = True
 
                 # If it is a half-supported hashlib algorithm
                 elif algorithm in [LDAP_MD5, LDAP_SHA1]:
@@ -1054,7 +1078,7 @@ def crackHash (algorithm, hashvalue=None, hashfile=None,verbose=False):
                     # If the calculated hash is the same to cracker result, the result is correct (finish!)
                     if h.digest() == ahash:
                         hashresults.append (result)
-                        cracked = 2
+                        cracked = True
 
                 # If it is a NTLM hash
                 elif algorithm == NTLM or (algorithm == LM and ':' in activehash):
@@ -1064,21 +1088,25 @@ def crackHash (algorithm, hashvalue=None, hashfile=None,verbose=False):
                     # It's a LM:NTLM combination or a single NTLM hash
                     if (':' in activehash and candidate == activehash.split(':')[1]) or (':' not in activehash and candidate == activehash):
                         hashresults.append (result)
-                        cracked = 2
+                        cracked = True
 
                 # If it is another algorithm, we search in all the crackers
-                else:
-                    hashresults.append (result)
-                    cracked = 1
+               # else:
+                #    hashresults.append (result)
+                 #   cracked = 1
 
             # Had the hash cracked?
-            if not verbose:
-                print colored(' --> ','yellow'),
+
             if verbose:
                 if cracked:
                     print colored("***** HASH CRACKED!! *****\n",'yellow')
                     print colored("The original string is: ",'yellow')+\
-                                  colored("%s\n" % (result),'white',None,['bold'])
+                                  colored("%s" % (result),'white',None,['bold']),
+                    if not cached:
+                        manageCached(activehash,write_cache,result)
+                        print "\n"
+                    else:
+                        print colored("[Cached]\n",'green')
                     # If result was verified, break
                     #if cracked == 2:
                     #    break
@@ -1086,12 +1114,16 @@ def crackHash (algorithm, hashvalue=None, hashfile=None,verbose=False):
                     print "... hash not found in %s\n" % (cr.name)
             else:
                 if cracked:
-                    print colored("[ %s ]"% result,'white',None,['bold'])
-                else:
-                    print colored("[ NOT FOUND ]",'red',None,['bold'])
-            if cracked == 2:
+                    print colored("[ %s ]"% result,'white',None,['bold']),
+                    if not cached:
+                        manageCached(activehash,write_cache,result)
+                        print "\n"
+                    else:
+                        print colored("[Cached]\n",'green')
+            if cracked:
                 break
-
+        if not cracked and not verbose:
+            print colored("[ NOT FOUND ]", 'red', None, ['bold'])
         # Store the result/s for later...
         if hashresults:
 
@@ -1221,6 +1253,41 @@ def list_per_hash(algorithm):
         return 0
     return 1
 
+
+def manageCached(hashvalue,manage,result):
+    # If cacvhe file does not exist, create it!
+    try:
+        open(CACHE_FILENAME,"r").close()
+    except IOError as e:
+        #print "I/O error({0}): {1} -> {2}".format(e.errno, e.strerror,CACHE_FILENAME)
+        try:
+            if e.errno==2:
+                open(CACHE_FILENAME,"w").close()
+                if verbose:
+                    print colored("Cache file created: {0}/{1} ".format(os.getcwd(), CACHE_FILENAME), 'blue')
+        except IOError as io:
+            print colored("Error creating cache file: {0}/{1}".format(os.getcwd(),CACHE_FILENAME),'red')
+            print colored("I/O error({0}): {1}".format(io.errno,io.strerror),'red')
+            return None
+    hashvalue=hashvalue.strip()
+    if manage==read_cache:
+        with open(CACHE_FILENAME,"r") as cache:
+            for line in cache:
+                if hashvalue in line.split(' -> ')[0].strip():
+                    result=line.split(' -> ')[1].strip()
+                    return result
+    elif manage==write_cache and result is not None:
+        with open(CACHE_FILENAME,"a") as cache:
+            cache.write("\n"+hashvalue+' -> '+result)
+        cache.close()
+        return hashvalue
+
+    return None
+
+def clearCached(self):
+    open(CACHE_FILENAME,"w").close()
+
+
 ########################################################################################################
 ### MAIN CODE
 ########################################################################################################
@@ -1277,18 +1344,18 @@ def main():
     # Initialize PRNG seed
     seed()
 
-    cracked = 0
-
-
+    #cracked = 0
     ###################################################
     # Crack the hash/es
-    cracked = crackHash (algorithm, hashvalue, hashfile,verbose)
+    # cracked =
+
+    crackHash (algorithm, hashvalue, hashfile,verbose)
 
 
     ###################################################
     # Look for the hash in Google if it was not cracked
-    if not cracked and googlesearch and not hashfile:
-        searchHash (hashvalue)
+   # if not cracked and googlesearch and not hashfile:
+   #     searchHash (hashvalue)
 
 
 
