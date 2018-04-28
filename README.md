@@ -30,7 +30,7 @@ A really handy script I found on PacketStorm. I'm including as I find it helpful
 
 ## findmyhash.py  `[UPDATED]`
 
-#####[UPDATE]: This script was so old that many sites used to reverse hashes no longer exist, so I removed them and fixed all that are currently working and also added a few more.  Currently it works fine providing a pretty output.  
+##### [UPDATE]: This script was so old that many sites used to reverse hashes no longer exist, so I removed them and fixed all that are currently working and also added a few more.  Currently it works fine providing a pretty output.  
 
 I also added some features:  
 
